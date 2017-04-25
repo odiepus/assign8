@@ -50,59 +50,13 @@ int main(void)
 
         }
 
-        if(c1.background == 1)                  //check if we need to BG the process'
+
+        sitch(fork())
         {
-            swtich(fork())                      //fork the first child this child will
-            {                                   //check if there are redirects and set em up
-                case -1:                        //it will check if it needs more than 1 child by checking the pipe status
-                    perror("fork");
-                    exit -1;
-                case 0:                         //1st child
-                    switch(c1.redirect_in)      //check for redirects
-                    {
-                        case 1:
-                            dup2(fd[0], STDIN_FILENO);
-                            close(fd[0]);
-
-                            if(c1.redirect_out == 1)
-                            {
-                                dup2(fd[1], STDOUT_FILENO);
-                                close(fd[1]);
-                            }
-                            else
-                            {
-                                close(fd[1]);
-                            }
-                            break;
-                        case 0:
-                            close(fd[0]);
-
-                            if(c1.redirect_out == 1)
-                            {
-                                dup2(fd[1], STDOUT_FILENO);
-                                close(fd[1]);
-                            }
-                            else
-                            {
-                                close(fd[1]);
-                            }
-                            break;
-                    }
-
-                    if(c1.pipe == 1)
-                    {
-                        switch(fork())
-                        {
-                            case -1:
-                                perror("fork");
-                                exit -1;
-                            case 0:
-                        }
-                    }
-                }
-            }
+            case -1:
+                perror("fork");
+                exit -1;
         }
-
 
     return 0;
 }
