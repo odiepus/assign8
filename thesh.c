@@ -68,7 +68,7 @@ int main(void)
                 switch(strcmp(c1.infile, " "))                          //check if there is an in file
                 {
                     case 0:
-                        if( (inFile = open(c1.infile, O_READONLY)) == -1) //if there is open it and redirect stdin from file
+                        if( (inFile = open(c1.infile, O_RDONLY)) == -1) //if there is open it and redirect stdin from file
                         {
                             perror("open");
                             exit -1;
@@ -106,7 +106,7 @@ int main(void)
                                 close(inNout[0]);
                                 close(inNout[1]);
 
-                                switch(fork())
+                                switch(fork())          //child1 forks another child
                                 {
                                     case -1:
                                         perror("fork");
@@ -128,12 +128,19 @@ int main(void)
                     case 1:  //if there is to be BG
                         swtich(c1.piping)               //check for piping
                         {
-                            case 0:                     //if ther is no piping
-                                execvp(c1.argv1[0], c1.argv1);
-                                perror("exec");
-                                exit -1;
+                            case 0:                     //if ther is no piping then give to child 3 (grandchild) and child2 leaves
+                                switch(fork())
+                                {
+                                    case -1:
+                                        perror("fork");
+                                        exit -1;
+                                    case 0:                 //child3 execs the 1 prog cuz there is no piping
+                                        execvp(c1.argv1[0], c1.argv1);
+                                        perror("exec");
+                                        exit -1;
+                                }
                             case 1:                     //if there is piping then have child 2(grandchild) fork and it and child3 can run progs
-                                swtich(fork())
+                                swtich(fork())          //child1 forks another child
                                 {
                                     case -1:
                                         perror("fork");
@@ -152,8 +159,26 @@ int main(void)
                                         exit -1;
                                 }
                         }
+                    default:        //child 1 exits cuz there is no piping
+                        exit 0;
                 }
-        }
+            default:                            //parent closes its pipe and doesnt wait for child
+                if(c1.piping == 1)
+                {
+                    close(inNout[0]);
+                    close(inNout[1]);
+                }
+                wait(NULL);
+                break;
+        }                               //end of first fork
+        printf("\n+--> ");      //print our prompt
+        gets(holdInput);        //get user input and put in our buffer
+        holdInput[strcspn(holdInput, "\n")] = 0; //place null at end of input just incase
+
+    } // end of while loop
+
+
+
 
     return 0;
 }
