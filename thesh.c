@@ -4,6 +4,7 @@
 #include<sys/stat.h>
 #include<string.h>
 #include<fcntl.h>
+#include<wait.h>
 
 #define BUFF 1024
 
@@ -31,16 +32,15 @@ int main(void)
     int outFile;
 
     printf("\n+--> ");      //print our prompt
-    gets(holdInput);        //get user input and put in our buffer
-    holdInput[strcspn(holdInput, "\n")] = 0; //place null at end of input just incase
+    fgets(holdInput, BUFF, stdin);        //get user input and put in our buffer
+    holdInput[strcspn(holdInput, "\r\n")] = 0; //place null at end of input just incase
 
     while( (strcmp(holdInput, "exit")) != 0 ) //loop till user inputs exit
     {
         if(cmdscan(holdInput, c1) == -1)
         {
             printf("Error Parsing line\n");
-            printf("Please try again.\n");
-            continue;
+            exit (-1);
         }
 
         if(c1.piping == 1)                        //check if we need to pipe
@@ -48,7 +48,7 @@ int main(void)
             if(pipe(inNout) == -1) //create this programs pipe
             {
                 perror("pipe");
-                exit -1;
+                exit (-1);
             }
 
         }
@@ -58,7 +58,7 @@ int main(void)
         {
             case -1:
                 perror("fork");
-                exit -1;
+                exit (-1);
                 /*
                  * check if there are files. this allows me to redirect the std's first
                  * then if later I can redirect std's to the fd's if needed. else I can still
@@ -71,7 +71,7 @@ int main(void)
                         if( (inFile = open(c1.infile, O_RDONLY)) == -1) //if there is open it and redirect stdin from file
                         {
                             perror("open");
-                            exit -1;
+                            exit (-1);
                         }
                         dup2(inNout[0], STDIN_FILENO);
                 }
@@ -95,12 +95,12 @@ int main(void)
                 switch(c1.background)
                 {
                     case 0:         //if no background and no piping then there is only one program to run
-                        swtich(c1.piping)
+                        switch(c1.piping)
                         {
                             case 0:
                                 execvp(c1.argv1[0], c1.argv1);
                                 perror("exec");
-                                exit -1;
+                                exit (-1);
                             case 1:     //if no BG and there is piping then we run our second prog in child1 and our first prog in child2(grandchild)
                                 dup2(inNout[0], STDIN_FILENO);
                                 close(inNout[0]);
@@ -110,7 +110,7 @@ int main(void)
                                 {
                                     case -1:
                                         perror("fork");
-                                        exit -1;
+                                        exit (-1);
                                     case 0:         //child2 (grandchild) this process will run first prog and pass to parent(child1)
                                         dup2(inNout[1], STDOUT_FILENO);
                                         close(inNout[1]);
@@ -118,33 +118,33 @@ int main(void)
 
                                         execvp(c1.argv1[0], c1.argv1);
                                         perror("exec");
-                                        exit -1;
+                                        exit (-1);
                                     default:                //child1 takes output from child2 after it executes [pipes closed earlier]
                                         execvp(c1.argv2[0], c1.argv2);
                                         perror("exec");
-                                        exit -1;
+                                        exit (-1);
                                 }
                         }
                     case 1:  //if there is to be BG
-                        swtich(c1.piping)               //check for piping
+                        switch(c1.piping)               //check for piping
                         {
                             case 0:                     //if ther is no piping then give to child 3 (grandchild) and child2 leaves
                                 switch(fork())
                                 {
                                     case -1:
                                         perror("fork");
-                                        exit -1;
+                                        exit (-1);
                                     case 0:                 //child3 execs the 1 prog cuz there is no piping
                                         execvp(c1.argv1[0], c1.argv1);
                                         perror("exec");
-                                        exit -1;
+                                        exit (-1);
                                 }
                             case 1:                     //if there is piping then have child 2(grandchild) fork and it and child3 can run progs
-                                swtich(fork())          //child1 forks another child
+                                switch(fork())          //child1 forks another child
                                 {
                                     case -1:
                                         perror("fork");
-                                        exit -1;
+                                        exit (-1);
                                     case 0:         //child4 (great grandchild) this process will run first prog and pass to parent(child3)
                                         dup2(inNout[1], STDOUT_FILENO);
                                         close(inNout[1]);
@@ -152,15 +152,15 @@ int main(void)
 
                                         execvp(c1.argv1[0], c1.argv1);
                                         perror("exec");
-                                        exit -1;
+                                        exit (-1);
                                     default:                //child3 takes output from child4 after it executes [pipes closed earlier]
                                         execvp(c1.argv2[0], c1.argv2);
                                         perror("exec");
-                                        exit -1;
+                                        exit (-1);
                                 }
                         }
                     default:        //child 1 exits cuz there is no piping
-                        exit 0;
+                        exit (0);
                 }
             default:                            //parent closes its pipe and doesnt wait for child
                 if(c1.piping == 1)
