@@ -32,12 +32,12 @@ int main(void)
     int outFile;
 
     printf("\n+--> ");      //print our prompt
-    fgets(holdInput, BUFF, stdin);        //get user input and put in our buffer
-    holdInput[strcspn(holdInput, "\r\n")] = 0; //place null at end of input just incase
+    gets(holdInput); //get user input and put in our buffer
+    //holdInput[strcspn(holdInput, "\r\n")] = 0; //place null at end of input just incase
 
     while( (strcmp(holdInput, "exit")) != 0 ) //loop till user inputs exit
     {
-        if(cmdscan(holdInput, c1) == -1)
+        if(cmdscan(&holdInput, &c1) == -1)
         {
             printf("Error Parsing line\n");
             exit (-1);
@@ -65,29 +65,36 @@ int main(void)
                  * redirect fd's later without having to worry about files
                  */
             case 0:         //first child
-                switch(strcmp(c1.infile, " "))                          //check if there is an in file
+                if(c1.redirect_in == 1)
                 {
-                    case 0:
-                        if( (inFile = open(c1.infile, O_RDONLY)) == -1) //if there is open it and redirect stdin from file
-                        {
-                            perror("open");
-                            exit (-1);
-                        }
-                        dup2(inNout[0], STDIN_FILENO);
+                    if( (inFile = open(c1.infile, O_RDONLY)) == -1) //if there is open it and redirect stdin from file
+                    {
+                        perror("openFFFFFF");
+                        exit (-1);
+                    }
+                    dup2(inFile, STDIN_FILENO);
                 }
-                switch(strcmp(c1.outfile, " "))                 //check if there is an outfile
+
+                if(c1.redirect_append == 1 && c1.redirect_out == 1)  //if there is an outfile then check its to be truncated or appended
                 {
-                    case 0:
-                        if(c1.redirect_append == 1 && c1.redirect_out == 1)  //if there is an outfile then check its to be truncated or appended
-                        {
-                            outFile = open(c1.outfile, O_CREAT | O_WRONLY | O_APPEND, 0600);
-                        }
-                        else if(c1.redirect_out == 1)
-                        {
-                            outFile = open(c1.outfile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-                        }
-                        dup2(inNout[1], STDOUT_FILENO);                     //redirect stdout to our file
+                    if( (outFile = open(c1.outfile, O_CREAT | O_WRONLY | O_APPEND, 0600)) == -1 )
+                    {
+                        perror("openhhhhhhh");
+                        exit (-1);
+
+                    }
+                    dup2(outFile, STDOUT_FILENO);                     //redirect stdout to our file
                 }
+                else if(c1.redirect_out == 1)
+                {
+                    if( (outFile = open(c1.outfile, O_CREAT | O_WRONLY | O_TRUNC, 0600)) == -1)
+                    {
+                        perror("openHHHHHHH");
+                        exit (-1);
+                    }
+                    dup2(outFile, STDOUT_FILENO);                     //redirect stdout to our file
+                }
+
 
                 /*
                  * check if processes must run in the background
@@ -102,28 +109,30 @@ int main(void)
                                 perror("exec");
                                 exit (-1);
                             case 1:     //if no BG and there is piping then we run our second prog in child1 and our first prog in child2(grandchild)
-                                dup2(inNout[0], STDIN_FILENO);
-                                close(inNout[0]);
-                                close(inNout[1]);
-
                                 switch(fork())          //child1 forks another child
                                 {
                                     case -1:
                                         perror("fork");
                                         exit (-1);
                                     case 0:         //child2 (grandchild) this process will run first prog and pass to parent(child1)
+                                        close(inNout[0]);       //child2 [pipes closed]
                                         dup2(inNout[1], STDOUT_FILENO);
                                         close(inNout[1]);
-                                        close(inNout[0]);       //child2 [pipes closed]
 
                                         execvp(c1.argv1[0], c1.argv1);
-                                        perror("exec");
+                                        perror("exec BBBBBBB");
                                         exit (-1);
                                     default:                //child1 takes output from child2 after it executes [pipes closed earlier]
+                                        close(inNout[1]);
+                                        dup2(inNout[0], STDIN_FILENO);
+                                        close(inNout[0]);
+
                                         execvp(c1.argv2[0], c1.argv2);
-                                        perror("exec");
+                                        perror("exec GDAFDSDSAF");
                                         exit (-1);
                                 }
+                            default:
+                                exit(0);
                         }
                     case 1:  //if there is to be BG
                         switch(c1.piping)               //check for piping
@@ -154,8 +163,12 @@ int main(void)
                                         perror("exec");
                                         exit (-1);
                                     default:                //child3 takes output from child4 after it executes [pipes closed earlier]
+                                        dup2(inNout[0], STDIN_FILENO);
+                                        close(inNout[0]);
+                                        close(inNout[1]);
+
                                         execvp(c1.argv2[0], c1.argv2);
-                                        perror("exec");
+                                        perror("exec ,MMMMMMMM");
                                         exit (-1);
                                 }
                         }
@@ -169,7 +182,6 @@ int main(void)
                     close(inNout[1]);
                 }
                 wait(NULL);
-                break;
         }                               //end of first fork
         printf("\n+--> ");      //print our prompt
         gets(holdInput);        //get user input and put in our buffer
